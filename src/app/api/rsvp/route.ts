@@ -1,10 +1,73 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import sgMail from '@sendgrid/mail'
+import fs from 'fs'
+import path from 'path'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+// Check if Supabase is configured with valid credentials
+const isSupabaseConfigured = supabaseUrl &&
+  supabaseServiceKey &&
+  supabaseUrl.startsWith('https://') &&
+  supabaseUrl.includes('.supabase.co') &&
+  !supabaseUrl.includes('placeholder') &&
+  !supabaseUrl.includes('your_')
+
+let supabase: ReturnType<typeof createClient> | null = null
+
+if (isSupabaseConfigured) {
+  try {
+    supabase = createClient(supabaseUrl, supabaseServiceKey)
+  } catch (error) {
+    console.warn('Failed to initialize Supabase client:', error)
+    supabase = null
+  }
+}
+
+// Fallback: Local JSON storage for development
+const STORAGE_FILE = path.join(process.cwd(), 'rsvp-data.json')
+
+function getLocalRSVPs() {
+  try {
+    if (fs.existsSync(STORAGE_FILE)) {
+      const data = fs.readFileSync(STORAGE_FILE, 'utf-8')
+      return JSON.parse(data)
+    }
+  } catch (error) {
+    console.error('Error reading local RSVPs:', error)
+  }
+  return []
+}
+
+function saveLocalRSVP(rsvpData: any) {
+  try {
+    const rsvps = getLocalRSVPs()
+    const newRSVP = {
+      ...rsvpData,
+      id: Date.now().toString(),
+      created_at: new Date().toISOString()
+    }
+    rsvps.push(newRSVP)
+    fs.writeFileSync(STORAGE_FILE, JSON.stringify(rsvps, null, 2))
+    return newRSVP
+  } catch (error) {
+    console.error('Error saving local RSVP:', error)
+    throw error
+  }
+}
+
+function checkLocalDuplicate(email: string, attending: boolean): boolean {
+  const rsvps = getLocalRSVPs()
+  const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000)
+
+  return rsvps.some((rsvp: any) =>
+    rsvp.email === email &&
+    rsvp.attending === attending &&
+    new Date(rsvp.created_at).getTime() > oneDayAgo
+  )
+}
 
 if (process.env.SENDGRID_API_KEY) {
   sgMail.setApiKey(process.env.SENDGRID_API_KEY)
@@ -39,6 +102,11 @@ function checkRateLimit(ip: string): boolean {
 }
 
 async function checkDuplicateSubmission(email: string, attending: boolean): Promise<boolean> {
+  // Use local storage if Supabase not configured
+  if (!supabase) {
+    return checkLocalDuplicate(email, attending)
+  }
+
   // Check for duplicate with same email + attending status within 24 hours
   const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 
@@ -151,11 +219,38 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Store RSVP in database
-    const { data, error } = await supabase
-      .from('rsvps')
-      .insert([
-        {
+    let savedData: any
+
+    // Store RSVP - use Supabase if configured, otherwise use local JSON
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('rsvps')
+        .insert([
+          {
+            full_name: body.full_name,
+            email: body.email,
+            attending: body.attending,
+            guests: guestCount,
+            notes: body.notes || null,
+            ip_address: ip,
+            user_agent: request.headers.get('user-agent') || null,
+          },
+        ])
+        .select()
+
+      if (error) {
+        console.error('Database error:', error)
+        return NextResponse.json(
+          { error: 'Failed to save RSVP. Please try again.' },
+          { status: 500 }
+        )
+      }
+      savedData = data[0]
+    } else {
+      // Use local JSON storage for development
+      console.log('Using local JSON storage (Supabase not configured)')
+      try {
+        savedData = saveLocalRSVP({
           full_name: body.full_name,
           email: body.email,
           attending: body.attending,
@@ -163,16 +258,14 @@ export async function POST(request: NextRequest) {
           notes: body.notes || null,
           ip_address: ip,
           user_agent: request.headers.get('user-agent') || null,
-        },
-      ])
-      .select()
-
-    if (error) {
-      console.error('Database error:', error)
-      return NextResponse.json(
-        { error: 'Failed to save RSVP. Please try again.' },
-        { status: 500 }
-      )
+        })
+      } catch (error) {
+        console.error('Local storage error:', error)
+        return NextResponse.json(
+          { error: 'Failed to save RSVP. Please try again.' },
+          { status: 500 }
+        )
+      }
     }
 
     // Send notification email (non-blocking)
@@ -182,7 +275,7 @@ export async function POST(request: NextRequest) {
       {
         success: true,
         message: 'RSVP submitted successfully',
-        data: data[0]
+        data: savedData
       },
       { status: 201 }
     )
@@ -204,16 +297,26 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const { data, error } = await supabase
-      .from('rsvps')
-      .select('*')
-      .order('created_at', { ascending: false })
+    let data: any[]
 
-    if (error) {
-      console.error('Database error:', error)
-      return NextResponse.json(
-        { error: 'Failed to fetch RSVPs' },
-        { status: 500 }
+    if (supabase) {
+      const { data: supabaseData, error } = await supabase
+        .from('rsvps')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Database error:', error)
+        return NextResponse.json(
+          { error: 'Failed to fetch RSVPs' },
+          { status: 500 }
+        )
+      }
+      data = supabaseData || []
+    } else {
+      // Use local JSON storage
+      data = getLocalRSVPs().sort((a: any, b: any) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       )
     }
 

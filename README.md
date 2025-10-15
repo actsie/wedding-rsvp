@@ -17,7 +17,7 @@ A beautiful, mobile-first wedding RSVP website built with Next.js, React, TypeSc
 ### Prerequisites
 
 - Node.js 18+ and npm
-- Supabase account (free tier works fine)
+- Supabase account (free tier works fine) - **OPTIONAL**: The app will use local JSON storage if Supabase is not configured
 - SendGrid account for email notifications (optional but recommended)
 
 ### Installation
@@ -85,13 +85,22 @@ Vercel will automatically redeploy whenever you push to your main branch.
 
 ### Environment Variables for Production
 
-Make sure to add all environment variables from `.env.local` to your Vercel project:
+**Important for Vercel Deployment**: You can deploy without Supabase! The app will use local JSON storage if Supabase is not configured.
 
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `SENDGRID_API_KEY`
-- `NOTIFICATION_EMAIL`
+**Option 1: Deploy without Supabase (Quick Start)**
+- Leave Supabase environment variables blank in Vercel
+- RSVPs will be stored in memory (note: this is temporary storage that resets on deployment)
+- Perfect for testing or small weddings
+
+**Option 2: Deploy with Supabase (Recommended for Production)**
+
+Add all environment variables from `.env.local` to your Vercel project:
+
+- `NEXT_PUBLIC_SUPABASE_URL` - Your Supabase project URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Your Supabase anon key
+- `SUPABASE_SERVICE_ROLE_KEY` - Your Supabase service role key
+- `SENDGRID_API_KEY` - (Optional) For email notifications
+- `NOTIFICATION_EMAIL` - (Optional) Email to receive RSVP notifications
 
 ## Admin Panel (Development Only)
 
