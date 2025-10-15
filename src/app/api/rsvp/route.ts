@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import sgMail from '@sendgrid/mail'
 import fs from 'fs'
 import path from 'path'
+import { sendRsvpNotification } from '@/lib/email'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
@@ -69,10 +69,6 @@ function checkLocalDuplicate(email: string, attending: boolean): boolean {
   )
 }
 
-if (process.env.SENDGRID_API_KEY) {
-  sgMail.setApiKey(process.env.SENDGRID_API_KEY)
-}
-
 interface RSVPData {
   full_name: string
   email: string
@@ -127,27 +123,18 @@ async function checkDuplicateSubmission(email: string, attending: boolean): Prom
 }
 
 async function sendNotificationEmail(rsvpData: RSVPData) {
-  if (!process.env.SENDGRID_API_KEY || !process.env.NOTIFICATION_EMAIL) {
-    console.warn('SendGrid not configured, skipping email notification')
-    return
-  }
-
-  const attendingText = rsvpData.attending ? 'Yes' : 'No'
-  const notesText = rsvpData.notes || 'None'
-
-  const msg = {
-    to: process.env.NOTIFICATION_EMAIL,
-    from: process.env.NOTIFICATION_EMAIL,
-    subject: 'New RSVP from ' + rsvpData.full_name,
-    text: 'New RSVP Received:\n\nName: ' + rsvpData.full_name + '\nEmail: ' + rsvpData.email + '\nAttending: ' + attendingText + '\nNumber of Guests: ' + rsvpData.guests + '\nNotes: ' + notesText,
-    html: '<h2>New RSVP Received</h2><p><strong>Name:</strong> ' + rsvpData.full_name + '</p><p><strong>Email:</strong> ' + rsvpData.email + '</p><p><strong>Attending:</strong> ' + attendingText + '</p><p><strong>Number of Guests:</strong> ' + rsvpData.guests + '</p><p><strong>Notes:</strong> ' + notesText + '</p>',
-  }
-
   try {
-    await sgMail.send(msg)
-    console.log('Notification email sent successfully')
+    await sendRsvpNotification({
+      name: rsvpData.full_name,
+      email: rsvpData.email,
+      attending: rsvpData.attending,
+      guests: rsvpData.guests,
+      notes: rsvpData.notes,
+      createdAt: new Date(),
+    })
   } catch (error) {
     console.error('Error sending notification email:', error)
+    // Don't throw - we don't want email failures to block RSVP submission
   }
 }
 
