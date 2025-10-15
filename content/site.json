@@ -1,0 +1,62 @@
+{
+  "meta": {
+    "title": "Our Wedding — RSVP",
+    "bride": "Alex",
+    "groom": "Jamie",
+    "date": "2026-06-12T15:00:00Z",
+    "venue": "Green Grove Hall",
+    "heroImage": "/images/hero-placeholder.jpg"
+  },
+  "details": {
+    "schedule": [
+      {
+        "time": "15:00",
+        "label": "Wedding Ceremony"
+      },
+      {
+        "time": "16:30",
+        "label": "Cocktail Hour"
+      },
+      {
+        "time": "18:00",
+        "label": "Reception & Dinner"
+      },
+      {
+        "time": "21:00",
+        "label": "Dancing"
+      }
+    ],
+    "dressCode": "Semi-formal",
+    "address": "123 Grove Street, Green Valley, CA 94000",
+    "mapLink": "https://maps.google.com/?q=123+Grove+Street,+Green+Valley,+CA+94000"
+  },
+  "faq": [
+    {
+      "q": "Is parking available at the venue?",
+      "a": "Yes! There's a large parking lot on site with plenty of spaces. Valet service will also be available."
+    },
+    {
+      "q": "Can I bring my children?",
+      "a": "We love your little ones, but we've planned an adults-only celebration. We hope you understand and can enjoy a night out!"
+    },
+    {
+      "q": "What should I bring as a gift?",
+      "a": "Your presence is the greatest gift! If you'd like to give something, we have a registry at [Store Name] or would appreciate contributions to our honeymoon fund."
+    },
+    {
+      "q": "Is the venue wheelchair accessible?",
+      "a": "Yes, Green Grove Hall is fully accessible with ramps, accessible restrooms, and reserved parking spaces near the entrance."
+    }
+  ],
+  "contact": {
+    "email": "hello@alexandjamie.wedding",
+    "message": "Have questions? We'd love to hear from you!"
+  },
+  "formLabels": {
+    "name": "Full name",
+    "email": "Email address",
+    "attending": "Will you be attending?",
+    "guests": "Number of guests",
+    "notes": "Dietary restrictions or special requests"
+  }
+}
