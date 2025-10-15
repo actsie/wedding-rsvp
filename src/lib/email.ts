@@ -2,7 +2,8 @@
 // Why: server-only, env-driven, safe defaults for RSVP notifications.
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Initialize Resend only if API key is configured
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 const FROM = process.env.RSVP_NOTIFY_FROM || 'Our Wedding <noreply@yourdomain.com>'
 const TO = (process.env.RSVP_NOTIFY_TO || process.env.NOTIFICATION_EMAIL || '')
   .split(',')
@@ -20,7 +21,7 @@ export type RsvpPayload = {
 
 export async function sendRsvpNotification(rsvp: RsvpPayload) {
   // Skip if Resend is not configured
-  if (!process.env.RESEND_API_KEY) {
+  if (!resend || !process.env.RESEND_API_KEY) {
     console.warn('Resend API key not configured, skipping email notification')
     return null
   }

@@ -4,6 +4,54 @@ import fs from 'fs'
 import path from 'path'
 import { sendRsvpNotification } from '@/lib/email'
 
+// Define database schema types for Supabase
+interface Database {
+  public: {
+    Tables: {
+      rsvps: {
+        Row: {
+          id: string
+          full_name: string
+          email: string
+          attending: boolean
+          guests: number
+          notes: string | null
+          ip_address: string
+          user_agent: string | null
+          created_at: string
+        }
+        Insert: {
+          full_name: string
+          email: string
+          attending: boolean
+          guests: number
+          notes?: string | null
+          ip_address: string
+          user_agent?: string | null
+        }
+        Update: {
+          full_name?: string
+          email?: string
+          attending?: boolean
+          guests?: number
+          notes?: string | null
+          ip_address?: string
+          user_agent?: string | null
+        }
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      [_ in never]: never
+    }
+    Enums: {
+      [_ in never]: never
+    }
+  }
+}
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 
@@ -15,11 +63,11 @@ const isSupabaseConfigured = supabaseUrl &&
   !supabaseUrl.includes('placeholder') &&
   !supabaseUrl.includes('your_')
 
-let supabase: ReturnType<typeof createClient> | null = null
+let supabase: any = null
 
 if (isSupabaseConfigured) {
   try {
-    supabase = createClient(supabaseUrl, supabaseServiceKey)
+    supabase = createClient<Database>(supabaseUrl, supabaseServiceKey)
   } catch (error) {
     console.warn('Failed to initialize Supabase client:', error)
     supabase = null
@@ -210,19 +258,19 @@ export async function POST(request: NextRequest) {
 
     // Store RSVP - use Supabase if configured, otherwise use local JSON
     if (supabase) {
+      const insertData: Database['public']['Tables']['rsvps']['Insert'] = {
+        full_name: body.full_name,
+        email: body.email,
+        attending: body.attending,
+        guests: guestCount,
+        notes: body.notes || null,
+        ip_address: ip,
+        user_agent: request.headers.get('user-agent') || null,
+      }
+
       const { data, error } = await supabase
         .from('rsvps')
-        .insert([
-          {
-            full_name: body.full_name,
-            email: body.email,
-            attending: body.attending,
-            guests: guestCount,
-            notes: body.notes || null,
-            ip_address: ip,
-            user_agent: request.headers.get('user-agent') || null,
-          },
-        ])
+        .insert([insertData])
         .select()
 
       if (error) {
